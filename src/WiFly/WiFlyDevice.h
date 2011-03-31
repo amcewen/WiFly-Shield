@@ -60,8 +60,8 @@ class WiFlyDevice {
     boolean softwareReboot(boolean isAfterBoot);
     boolean hardwareReboot();
 
-    friend class Client;
-    friend class Server;
+    friend class WiFlyClient;
+    friend class WiFlyServer;
 };
 
 #endif

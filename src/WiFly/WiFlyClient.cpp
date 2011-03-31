@@ -1,8 +1,8 @@
 
 #include "WiFly.h"
-#include "Client.h"
+#include "WiFlyClient.h"
 
-Client::Client(uint8_t *ip, uint16_t port) :
+WiFlyClient::WiFlyClient() :
   _WiFly (WiFly),
   stream (ParsedStream(SpiSerial)) {
   // TODO: Find out why neither of the following work as expected.
@@ -11,98 +11,75 @@ Client::Client(uint8_t *ip, uint16_t port) :
   //stream (ParsedStream(WiFly.uart)) {
   /*
    */
-  _ip = ip;
-  _port = port;
-  _domain = NULL;
-
   isOpen = false;
 }
 
 
-Client::Client(const char* domain, uint16_t port) :
-  _WiFly (WiFly),
-  stream (ParsedStream(SpiSerial)) {
-  // TODO: Find out why neither of the following work as expected.
-  //       (The result of `read()` is always -1. )
-  //stream (ParsedStream(_WiFly.uart)) {
-  //stream (ParsedStream(WiFly.uart)) {
-  /*
-   */
-  _ip = NULL;
-  _port = port;
-  _domain = domain;
-
-  isOpen = false;
-}
-
-
-void Client::write(byte value) {
+void WiFlyClient::write(byte value) {
   /*
    */
   _WiFly.uart.write(value);
 }
 
 
-void Client::write(const char *str) {
+void WiFlyClient::write(const char *str) {
   /*
    */
   _WiFly.uart.write(str);
 }
 
 
-void Client::write(const uint8_t *buffer, size_t size) {
+void WiFlyClient::write(const uint8_t *buffer, size_t size) {
   /*
    */
   _WiFly.uart.write(buffer, size);
 }
 
 
-boolean Client::connect() {
-  /*
-   */
-
+int WiFlyClient::connect(uint16_t port)
+{
   // Handle case when Null object returned from Server.available()
   if (!this) {
     return false;
   }
+  _port = port;
 
   // TODO: Implement this better
 
   stream.reset();
+  return true;
+}
 
-  if ((_ip == NULL) && (_domain == NULL)) {
-    // This is a connection started by the Server class
-    // so the connection is already established.
-  } else {
-    // TODO: Track state more?
-    _WiFly.enterCommandMode();
-    
-    _WiFly.sendCommand("open ", true, "" /* TODO: Remove this dummy value */);
-    
-    if (_ip != NULL) {
-      for (int index = 0; /* break inside loop*/ ; index++) {
-        _WiFly.uart.print(_ip[index], DEC);
-        if (index == 3) {
-          break;
-        }
-        _WiFly.uart.print('.');
-      }
-    } else if (_domain != NULL) {
-      _WiFly.uart.print(_domain);
-    } else {
-      while (1) {
-        // This should never happen
-      }
-    }
-    
-    _WiFly.uart.print(" ");
-    
-    _WiFly.uart.print(_port, DEC);
-    
-    _WiFly.sendCommand("", false, "*OPEN*");
-    
-    // TODO: Handle connect failure
+int WiFlyClient::connect(IPAddress ip, uint16_t port)
+{
+  /*
+   */
+  // Perform common setup steps
+  if (!connect(port))
+  {
+    return false;
   }
+
+  // TODO: Track state more?
+  _WiFly.enterCommandMode();
+    
+  _WiFly.sendCommand("open ", true, "" /* TODO: Remove this dummy value */);
+    
+  for (int index = 0; /* break inside loop*/ ; index++) {
+    _WiFly.uart.print(ip[index], DEC);
+    if (index == 3) {
+      break;
+    }
+    _WiFly.uart.print('.');
+  }
+    
+  _WiFly.uart.print(" ");
+    
+  _WiFly.uart.print(_port, DEC);
+    
+  _WiFly.sendCommand("", false, "*OPEN*");
+    
+  // TODO: Handle connect failure
   
   isOpen = true;
 
@@ -110,7 +87,38 @@ boolean Client::connect() {
 }
 
 
-int Client::available() {
+int WiFlyClient::connect(const char* domain, uint16_t port)
+{
+  /*
+   */
+  // Perform common setup steps
+  if (!connect(port))
+  {
+    return false;
+  }
+
+  // TODO: Track state more?
+  _WiFly.enterCommandMode();
+    
+  _WiFly.sendCommand("open ", true, "" /* TODO: Remove this dummy value */);
+    
+  _WiFly.uart.print(domain);
+    
+  _WiFly.uart.print(" ");
+    
+  _WiFly.uart.print(_port, DEC);
+    
+  _WiFly.sendCommand("", false, "*OPEN*");
+    
+  // TODO: Handle connect failure
+  
+  isOpen = true;
+
+  return true;
+}
+
+
+int WiFlyClient::available() {
   /*
    */
   if (!isOpen) {
@@ -121,7 +129,7 @@ int Client::available() {
 }
 
 
-int Client::read() {
+int WiFlyClient::read() {
   /*
    */
   if (!isOpen) {
@@ -132,7 +140,29 @@ int Client::read() {
 }
 
 
-void Client::flush(void) {
+int WiFlyClient::read(uint8_t* buffer, size_t size) {
+  /*
+   */
+  if (!isOpen) {
+    return -1;
+  }
+
+  return stream.read(buffer, size);
+}
+
+
+int WiFlyClient::peek() {
+  /*
+   */
+  if (!isOpen) {
+    return -1;
+  }
+
+  return stream.peek();
+}
+
+
+void WiFlyClient::flush(void) {
   /*
    */
   if (!isOpen) {
@@ -145,7 +175,7 @@ void Client::flush(void) {
 }
 
 
-bool Client::connected() {
+uint8_t WiFlyClient::connected() {
   /*
    */
   // TODO: Set isOpen to false once we know the stream is closed?
@@ -153,7 +183,7 @@ bool Client::connected() {
 }
 
 
-void Client::stop() {
+void WiFlyClient::stop() {
   /*
    */
   // TODO: Work out if there's some unintended compatibility issues
@@ -191,7 +221,7 @@ void Client::stop() {
 }
 
 
-Client::operator bool() {
+WiFlyClient::operator bool() {
   /*
    */
   // NOTE: In keeping with the Ethernet Client class
@@ -199,7 +229,7 @@ Client::operator bool() {
   //       indicate Server.available() found no connection.
   //       We use _ip == NULL, _domain == NULL, _port !=0 to
   //       indicate a server connection from a client.
-  return !((_ip == NULL) && (_domain == NULL) && (_port == 0));
+  return !(_port == 0);
 }
 
 // TODO: Add == and != operators for compatibility with Ethernet Client?

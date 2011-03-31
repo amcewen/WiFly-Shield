@@ -40,6 +40,8 @@ public:
   ParsedStream(SpiUartDevice& theUart);
   uint8_t available(void);
   int read(void);
+  int read(uint8_t* buffer, size_t size);
+  int peek(void);
 
   bool closed();
 

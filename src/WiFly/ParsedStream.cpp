@@ -67,6 +67,35 @@ bool ParsedStream::closed() {
   return _closed && !available();
 }
 
+int ParsedStream::read(uint8_t* buffer, size_t size) {
+
+  if (!available()) {
+    getByte();
+  }
+
+  int bytes_available = available();
+  if (!bytes_available) {
+    return -1;
+  } else {
+    // make sure we don't copy more than we should
+    bytes_available = (bytes_available > size ? size : bytes_available);
+    size = bytes_available;
+
+    if (_rx_buffer.tail + size >= RX_BUFFER_SIZE) {
+      // It wraps round, so copy the end bit first
+      memcpy(buffer, _rx_buffer.buffer+_rx_buffer.tail, RX_BUFFER_SIZE-(_rx_buffer.tail+size));
+      buffer += RX_BUFFER_SIZE-(_rx_buffer.tail+size);
+      size -= RX_BUFFER_SIZE-(_rx_buffer.tail+size);
+      // We'll be at the start of the buffer now
+      _rx_buffer.tail = 0;
+    }
+    memcpy(buffer, _rx_buffer.buffer+_rx_buffer.tail, size);
+
+    _rx_buffer.tail = (_rx_buffer.tail + bytes_available) % RX_BUFFER_SIZE;
+    return bytes_available;
+  }
+}
+
 int ParsedStream::read(void) {
 
   if (!available()) {
@@ -78,6 +107,21 @@ int ParsedStream::read(void) {
   } else {
     unsigned char c = _rx_buffer.buffer[_rx_buffer.tail];
     _rx_buffer.tail = (_rx_buffer.tail + 1) % RX_BUFFER_SIZE;
+    return c;
+  }
+}
+
+
+int ParsedStream::peek(void) {
+
+  if (!available()) {
+    getByte();
+  }
+
+  if (!available()) {
+    return -1;
+  } else {
+    unsigned char c = _rx_buffer.buffer[_rx_buffer.tail];
     return c;
   }
 }
